@@ -48,6 +48,23 @@ FRAGMENT_SHADER  :: #string GLSL
 GLSL
 
 create_triangle_buffers :: (triangle_data : []float) -> (GLuint, GLuint) {
+  VAO, VBO : u32;
+
+  glGenVertexArrays(1, *VAO);
+  glGenBuffers(1, *VBO);
+
+  glBindVertexArray(VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, size_of(float) * triangle_data.count, *triangle_data, GL_STATIC_DRAW);
+
+  // Bind vertex data
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * size_of(float), null);
+  glEnableVertexAttribArray(0);
+
+  // Bind fragment data
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * size_of(float), cast(*void) (3 * size_of(float)));
+  glEnableVertexAttribArray(1);
 
 }
 
