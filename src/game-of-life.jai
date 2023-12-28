@@ -23,9 +23,9 @@ TRIANGLE_INDICES := float.[
 
 Triangle :: struct {
   triangle_verts := GLfloat.[
-     -.5, -.5, 0.0,
-      .5, -.5, 0.0,
-     0.0,  .5, 0.0,
+     -0.5, -0.5, 0.0,
+     0.5, -0.5, 0.0,
+     0.0, 0.5, 0.0,
   ];
 
   triangle_colors := GLfloat.[
@@ -37,20 +37,6 @@ Triangle :: struct {
 
 triangle: Triangle;
 
-VERTEX_SHADER :: #string GLSL
-  #version 460 core
-  layout(location = 0) in vec3 vertexPosition_modelspace;
-
-  out vec3 fragmentColor;
-
-  void main() {
-      gl_Position = vec4(vertexPosition_modelspace, 1);
-
-      fragmentColor = vec3(1.0, 0.0, 0.0);
-  }
-GLSL
-
-/*
 // This is shader without camera
 VERTEX_SHADER :: #string GLSL
   #version 460 core
@@ -65,7 +51,6 @@ VERTEX_SHADER :: #string GLSL
       fragmentColor = vertexColor;
   }
 GLSL
-*/
 
 /*
 // This is shader with camera
@@ -98,17 +83,22 @@ FRAGMENT_SHADER  :: #string GLSL
   }
 GLSL
 
-render_triangle :: (vbo: GLuint, shader_program: GLuint) {
+render_triangle :: (vbo_verts: GLuint, vbo_color: GLuint, shader_program: GLuint) {
   glUseProgram(shader_program);
 
   glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
 
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_verts);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, cast(*void)0 );
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_color);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, cast(*void)0 );
 
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
 
   //glUseProgram(shader_program);
 
@@ -118,13 +108,17 @@ render_triangle :: (vbo: GLuint, shader_program: GLuint) {
   // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, null);
 }
 
-create_triangle_buffers :: (triangle_verts : []float) -> GLuint {
-  VBO : u32;
+create_triangle_buffers :: (using triangle : Triangle) -> (GLuint, GLuint) {
+  VBO_vert, VBO_color : u32;
 
+  glGenBuffers(1, *VBO_vert);
+  glGenBuffers(1, *VBO_color);
 
-  glGenBuffers(1, *VBO);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBindBuffer(GL_ARRAY_BUFFER, VBO_vert);
   glBufferData(GL_ARRAY_BUFFER, size_of(type_of(triangle_verts)), triangle_verts.data, GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
+  glBufferData(GL_ARRAY_BUFFER, size_of(type_of(triangle_colors)), triangle_colors.data, GL_STATIC_DRAW);
 
   print("Triangle data size: %\n", size_of(float) * triangle_verts.count);
 
@@ -144,7 +138,7 @@ create_triangle_buffers :: (triangle_verts : []float) -> GLuint {
   // glDisableVertexAttribArray(0);
   // glDisableVertexAttribArray(1);
 
-  return VBO;
+  return VBO_vert, VBO_color;
 }
 
 load_shaders :: (vertex_shader : string, fragment_shader : string) -> GLuint {
@@ -265,9 +259,10 @@ main :: () {
 
   print("VAO = %\n", VAO);
 
-  triangle_vbo := create_triangle_buffers(triangle.triangle_verts);
+  triangle_vbo_verts, triangle_vbo_color := create_triangle_buffers(triangle);
 
-  print("Triangle VBO = %\n", triangle_vbo);
+  print("Triangle VBO verts = %\n", triangle_vbo_verts);
+  print("Triangle VBO color = %\n", triangle_vbo_color);
 
   while ENGINE_RUNNING {
     event : SDL_Event;
@@ -288,13 +283,14 @@ main :: () {
     glClearColor(0.2, 0.3, 0.1, 1.0);
     
     // Rendering triangle
-    render_triangle(triangle_vbo, shader_program);
+    render_triangle(triangle_vbo_verts, triangle_vbo_color, shader_program);
 
     SDL_GL_SwapWindow(window);
   }
 
   // Cleaning up Buffers and stuff
   glDeleteVertexArrays(1, *VAO);
-  glDeleteBuffers(1, *triangle_vbo);
+  glDeleteBuffers(1, *triangle_vbo_verts);
+  glDeleteBuffers(1, *triangle_vbo_color);
   glDeleteProgram(shader_program);
 }
