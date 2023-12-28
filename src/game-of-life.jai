@@ -21,11 +21,21 @@ TRIANGLE_INDICES := float.[
 ];
 */
 
-TRIANGLE_DATA := float.[
-   -.5, -.5, 0.0,
-    .5, -.5, 0.0,
-   0.0,  .5, 0.0,
-];
+Triangle :: struct {
+  triangle_verts := GLfloat.[
+     -.5, -.5, 0.0,
+      .5, -.5, 0.0,
+     0.0,  .5, 0.0,
+  ];
+
+  triangle_colors := GLfloat.[
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0,
+  ];
+}
+
+triangle: Triangle;
 
 VERTEX_SHADER :: #string GLSL
   #version 460 core
@@ -88,33 +98,39 @@ FRAGMENT_SHADER  :: #string GLSL
   }
 GLSL
 
-render_triangle :: (vao: GLuint, shader_program: GLuint) {
-  
-
+render_triangle :: (vbo: GLuint, shader_program: GLuint) {
   glUseProgram(shader_program);
 
-  glBindVertexArray(vao);
+  glEnableVertexAttribArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, cast(*void)0 );
+
   glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glDisableVertexAttribArray(0);
+
+  //glUseProgram(shader_program);
+
+  // glBindVertexArray(vao);
+  // glDrawArrays(GL_TRIANGLES, 0, 3);
 
   // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, null);
 }
 
-create_triangle_buffers :: (triangle_data : []float) -> (GLuint, GLuint) {
-  VAO, VBO : u32;
+create_triangle_buffers :: (triangle_verts : []float) -> GLuint {
+  VBO : u32;
 
-  glGenVertexArrays(1, *VAO);
+
   glGenBuffers(1, *VBO);
-
-  glBindVertexArray(VAO);
-
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, size_of(type_of(triangle_data)), *triangle_data, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, size_of(type_of(triangle_verts)), triangle_verts.data, GL_STATIC_DRAW);
 
-  print("Triangle data size: %\n", size_of(float) * triangle_data.count);
+  print("Triangle data size: %\n", size_of(float) * triangle_verts.count);
 
   // Bind vertex data
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(type_of(triangle_data)), null);
-  glEnableVertexAttribArray(0);
+  // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(type_of(triangle_data)), null);
+  // glEnableVertexAttribArray(0);
 
   // Bind fragment data
   /*
@@ -128,7 +144,7 @@ create_triangle_buffers :: (triangle_data : []float) -> (GLuint, GLuint) {
   // glDisableVertexAttribArray(0);
   // glDisableVertexAttribArray(1);
 
-  return VAO, VBO;
+  return VBO;
 }
 
 load_shaders :: (vertex_shader : string, fragment_shader : string) -> GLuint {
@@ -243,9 +259,14 @@ main :: () {
 
   print("Shader program id = %\n", shader_program);
 
-  triangle_vao, triangle_vbo := create_triangle_buffers(TRIANGLE_DATA);
+  VAO : GLuint;
+  glGenVertexArrays(1, *VAO);
+  glBindVertexArray(VAO);
 
-  print("Triangle VAO = %\n", triangle_vao);
+  print("VAO = %\n", VAO);
+
+  triangle_vbo := create_triangle_buffers(triangle.triangle_verts);
+
   print("Triangle VBO = %\n", triangle_vbo);
 
   while ENGINE_RUNNING {
@@ -263,17 +284,17 @@ main :: () {
         }
       }
 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.2, 0.3, 0.1, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
     
     // Rendering triangle
-    render_triangle(triangle_vao, shader_program);
+    render_triangle(triangle_vbo, shader_program);
 
     SDL_GL_SwapWindow(window);
   }
 
   // Cleaning up Buffers and stuff
-  glDeleteVertexArrays(1, *triangle_vao);
+  glDeleteVertexArrays(1, *VAO);
   glDeleteBuffers(1, *triangle_vbo);
   glDeleteProgram(shader_program);
 }
